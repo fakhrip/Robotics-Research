@@ -2,11 +2,11 @@ import env
 import time
 import robot as rbt
 import simulation as smt
-import b0RemoteApi
+import b0_lib.b0RemoteApi as remote
 import matplotlib.pyplot as plt
 
 
-with b0RemoteApi.RemoteApiClient("b0RemoteApi_pythonClient", "b0RemoteApi") as client:
+with remote.RemoteApiClient("b0RemoteApi_pythonClient", "b0RemoteApi") as client:
 
     ###===============================###
     #  Variable initialization          #

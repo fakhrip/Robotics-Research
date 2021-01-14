@@ -3,11 +3,11 @@
 # and the server counterpart to lua/b0RemoteApiServer.lua
 # -------------------------------------------------------
 
-import b0
 import msgpack
 import random
 import string
 import time
+import b0_lib.b0 as b0
 
 class RemoteApiClient:
     def __init__(self,nodeName='b0RemoteApi_pythonClient',channelName='b0RemoteApi',inactivityToleranceInSec=60,setupSubscribersAsynchronously=False,timeout=3):

@@ -13,6 +13,8 @@ class Simulation:
         self.__hold = 0
         self.__isDanger = False
 
+        self.printLog = printLog
+
     def setDanger(self, danger: bool) -> None:
         self.__isDanger = danger
 
@@ -33,7 +35,7 @@ class Simulation:
             if isSuccess:
                 self.var.setHandle(x, handle)
 
-        if printLog:
+        if self.printLog:
             env.printAllValues(self.var)
 
     def getObjectVelocity(self, handle: int, sync=False, callback=None) -> list:
@@ -105,7 +107,7 @@ class Simulation:
             return
 
         targetCoord = (x, y)
-        if printLog:
+        if self.printLog:
             print(f"Range to target = {geodesic(targetCoord, (0.0, 0.0)).km} m")
 
     def sensorStateChanged(self, msg):
@@ -134,7 +136,7 @@ class Simulation:
                 if distance < 0.30:
                     self.setDanger(True)
 
-                if printLog:
+                if self.printLog:
                     print(f"Distance to collision = {distance}")
                     print(f"Collision Coord = {detectedCoords}")
 
@@ -144,7 +146,7 @@ class Simulation:
         if not isSuccess:
             return
 
-        if printLog:
+        if self.printLog:
             print(f"Position state = {x},{y}")
 
         self.robot.updateCurrentState([x, y], "position")
@@ -156,7 +158,7 @@ class Simulation:
         if not isSuccess:
             return
 
-        if printLog:
+        if self.printLog:
             print(f"Robot linear velocity  = {val}")
 
         self.robot.updateCurrentState(
@@ -181,7 +183,7 @@ class Simulation:
         if isCompleted:
             yaw = result[1][b"yaw"]
 
-            if printLog:
+            if self.printLog:
                 print(f"yaw_pitch_roll = {result[1]}")
 
             # The original yaw is -90deg thus we have to add it with 90deg
@@ -197,7 +199,7 @@ class Simulation:
         if not isSuccess:
             return
 
-        if printLog:
+        if self.printLog:
             print(f"Robot rotation velocity = {val}")
 
         self.robot.updateCurrentState(val, "omega")
@@ -274,7 +276,7 @@ class Simulation:
             self.robot.setState([x, y, math.radians(0), 0.0, 0.0])
             self.robot.currentState = [x, y, math.radians(0), 0.0, 0.0]
 
-            if printLog:
+            if self.printLog:
                 print(f"robot.state = {self.robot.state}")
 
         pos = self.getAbsPosition(self.var.TARGET_OBJECT["handle"])
@@ -282,7 +284,7 @@ class Simulation:
             x, y = pos[0], pos[1]
             self.robot.setGoal(x, y)
 
-            if printLog:
+            if self.printLog:
                 print(f"robot.goal = {self.robot.goal}")
 
     def moveRobot(self, isForced=False):
