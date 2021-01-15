@@ -16,4 +16,4 @@ TBA.
 
 # Paperwork
 
-All things regarding the paperwork are available in paperwork dir, including the final report that me and all of my teammate wrote for final project assignment of our Robotic Lecture in university. 
+All things regarding the paperwork are available in paperwork dir, including the final report that me and all of my teammate wrote for final project assignment of our Robotic Course in university. 
