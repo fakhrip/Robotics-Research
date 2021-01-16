@@ -17,20 +17,23 @@ class Robot:
         self.setState([x, y, yaw, v, omega])
         self.setGoal(0, 0)
 
-        self.currentState = [x, y, yaw, v, omega]
-        self.targetState = np.array([0, 0, 0, 0, 0])
         self.var = variables
+
+        self.__currentState = [x, y, yaw, v, omega]
+        self.__targetState = np.array([0, 0, 0, 0, 0])
 
         self.config = dwa.Config()
         self.config.robot_type = dwa.RobotType.rectangle
-        self.__predicted_trajectory = []
-        self.__trajectory = []
+
         self.__obstacles = []
+        self.__trajectory = []
+        self.__predicted_trajectory = []
 
         self.isNear = False
-        self.isSameSpeed = False
         self.isSameYaw = False
+        self.isSameSpeed = False
 
+        self.pred_yaw = 0
         self.missedCounter = 0
 
     @property
@@ -48,6 +51,14 @@ class Robot:
     @property
     def obstacles(self) -> list:
         return self.__obstacles
+
+    @property
+    def targetState(self) -> list:
+        return self.__targetState
+
+    @property
+    def currentState(self) -> list:
+        return self.__currentState
 
     def setState(self, arr: list) -> None:
         self.__state = np.array(arr)
@@ -71,14 +82,13 @@ class Robot:
             self.__obstacles = np.array([[x, y]])
 
     def updateCurrentState(self, val, what: int) -> None:
-
-        oldState = self.currentState
+        oldState = self.__currentState
 
         if what == "position":
             [x, y] = val
-            self.currentState = [x, y, oldState[2], oldState[3], oldState[4]]
+            self.__currentState = [x, y, oldState[2], oldState[3], oldState[4]]
         elif what == "rotation":
-            self.currentState = [
+            self.__currentState = [
                 oldState[0],
                 oldState[1],
                 val,
@@ -86,7 +96,7 @@ class Robot:
                 oldState[4],
             ]
         elif what == "velocity":
-            self.currentState = [
+            self.__currentState = [
                 oldState[0],
                 oldState[1],
                 oldState[2],
@@ -94,7 +104,7 @@ class Robot:
                 oldState[4],
             ]
         elif what == "omega":
-            self.currentState = [
+            self.__currentState = [
                 oldState[0],
                 oldState[1],
                 oldState[2],
@@ -102,16 +112,25 @@ class Robot:
                 val,
             ]
 
-    def calcPath(self) -> list:
+    def calcPath(self, cur_state=None) -> list:
+        [x, y, yaw, v, omega] = cur_state if cur_state else self.__state
+
         u, predicted_trajectory = dwa.dwa_control(
-            self.__state, self.config, self.__goal, self.__obstacles
+            np.array([x, y, yaw, v, omega]),
+            self.config,
+            self.__goal,
+            self.__obstacles,
         )
 
-        new_state = dwa.motion(self.__state, u, self.config.dt)
+        new_state = dwa.motion(
+            np.array([x, y, yaw, v, omega]), u, self.config.dt
+        )
 
-        self.targetState = new_state
+        if cur_state == None:
+            self.__targetState = new_state
+
         self.setPredictedTrajectory(predicted_trajectory)
-
+        
         return new_state
 
     def isCoordNear(self, current, goal, thresh) -> bool:
@@ -119,19 +138,19 @@ class Robot:
         return dist_to_goal <= thresh
 
     def isFinished(self) -> bool:
-        self.isCoordNear(self.currentState, self.goal, self.config.robot_radius)
+        self.isCoordNear(self.__currentState, self.goal, self.config.robot_radius)
 
     def isStateClose(self) -> bool:
-        [x, y, yaw, v, omega] = self.currentState
-        [curX, curY, curYaw, curV, curOmega] = self.targetState
+        [x, y, yaw, v, omega] = self.__currentState
+        [curX, curY, curYaw, curV, curOmega] = self.__targetState
 
         i = self.isCoordNear([curX, curY], [x, y], 0.05)
-        j = abs(curV - v) <= 0.1
-        k = abs(curYaw - yaw) <= 0.1
+        j = abs(curYaw - yaw) <= 0.1
+        k = abs(curV - v) <= 0.1
 
-        self.isNear = True if self.isNear else i
-        self.isSameYaw = True if self.isSameYaw else j
-        self.isSameSpeed = True if self.isSameSpeed else k
+        self.isNear = self.isNear or i
+        self.isSameYaw = self.isSameYaw or j
+        self.isSameSpeed = self.isSameSpeed or k
 
         if self.isNear and self.isSameYaw and self.isSameSpeed:
             self.isNear = False
@@ -147,10 +166,10 @@ class Robot:
             self.missedCounter += 1
             return [False, False]
 
-    def plotAllStuff(self):
+    def plotAllStuff(self) -> None:
         plt.cla()
 
-        # for stopping simulation with the esc key.
+        # For stopping simulation with the esc key.
         plt.gcf().canvas.mpl_connect(
             "key_release_event",
             lambda event: [exit(0) if event.key == "escape" else None],
