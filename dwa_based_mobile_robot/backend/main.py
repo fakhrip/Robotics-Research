@@ -6,7 +6,7 @@ import b0_lib.b0RemoteApi as remote
 import matplotlib.pyplot as plt
 
 
-with remote.RemoteApiClient("b0RemoteApi_pythonClient", "b0RemoteApi") as client:
+with remote.RemoteApiClient("b0RemoteApi_pythonClient", "b0RemoteApi", timeout=6000) as client:
 
     ###===============================###
     #  Variable initialization          #
@@ -90,7 +90,7 @@ with remote.RemoteApiClient("b0RemoteApi_pythonClient", "b0RemoteApi") as client
     client.simxStartSimulation(client.simxDefaultPublisher())
 
     startTime = time.time()
-    while time.time() < startTime + 100:
+    while time.time() < startTime + 500:
         if doNextStep:
             doNextStep = False
             client.simxSynchronousTrigger()

@@ -9,14 +9,26 @@ class Simulation:
         self.var = variables
         self.robot = robot
 
-        self.__triggered = 0
         self.__hold = 0
+        self.__triggered = 0
+        self.__rotateCounter = 1
+        self.__movementCounter = 1
         self.__isDanger = False
+        self.__isReverse = False
+        self.__isRerotating = False
 
         self.printLog = printLog
 
     def setDanger(self, danger: bool) -> None:
         self.__isDanger = danger
+
+    def setIsRerotating(self, isRerotating: bool) -> None:
+        self.__isRerotating = isRerotating
+
+        if isRerotating:
+            self.__isReverse = False
+            self.__rotateCounter = 1
+            self.__movementCounter = 1
 
     ###===============================###
     #  Helper function definition       #
@@ -274,7 +286,7 @@ class Simulation:
         if pos != None and self.robot.state[0] == 0.0 and self.robot.state[1] == 0.0:
             x, y = pos[0], pos[1]
             self.robot.setState([x, y, math.radians(0), 0.0, 0.0])
-            self.robot.currentState = [x, y, math.radians(0), 0.0, 0.0]
+            self.robot.updateCurrentState([x, y], "position")
 
             if self.printLog:
                 print(f"robot.state = {self.robot.state}")
@@ -286,6 +298,25 @@ class Simulation:
 
             if self.printLog:
                 print(f"robot.goal = {self.robot.goal}")
+
+    def rotateRobot(self, yaw, reverse=False):
+        # Calculate difference of yaw
+        d_yaw = yaw - self.robot.currentState[2]
+
+        # Calculate wheel rotation based on the d_yaw
+        # to make the rotation degree grow exponentially
+        # yeah i know its stupid
+        EXP = 5
+        d_yaw *= EXP
+
+        # Make sure rotation is between 0 and -20
+        rotation_deg = math.degrees(d_yaw)
+        rotation_deg = max(min(rotation_deg, 0), 20)
+
+        if reverse:
+            self.rotateServo(rotation_deg, rotation=("LEFT" if d_yaw < 0 else "RIGHT"))
+        else:
+            self.rotateServo(rotation_deg, rotation=("RIGHT" if d_yaw < 0 else "LEFT"))
 
     def moveRobot(self, isForced=False):
         if isForced:
@@ -304,6 +335,8 @@ class Simulation:
                 self.__isDanger = False
                 self.__hold = 0
 
+                self.__isRerotating = False
+                
                 self.robot.setState(self.robot.currentState)
                 self.robot.updateTrajectory(self.robot.currentState)
 
@@ -315,11 +348,44 @@ class Simulation:
                 self.__hold += 1
 
                 if self.__hold > 10:
-                    self.setMotorSpeed(-3)
+                    self.setMotorSpeed(-2)
                 else:
                     self.brake()
 
                 self.rotateServo()
+                return
+
+            if self.__isRerotating:
+                if (
+                    not abs((yaw := self.robot.pred_yaw) - (cur_yaw := self.robot.currentState[2]))
+                    <= 0.1
+                ):
+                    if self.__rotateCounter % 200 == 0:
+                        self.__isReverse = True
+                        self.__movementCounter = 1
+                    elif self.__rotateCounter % 100 == 0:
+                        self.__isReverse = False
+                        self.__movementCounter = 1
+                
+                    if abs(math.degrees(yaw) - math.degrees(cur_yaw)) < 5:
+                        self.__isReverse = False
+                        self.__movementCounter = 1
+
+                    self.rotateRobot(yaw, reverse=self.__isReverse)
+                    self.__rotateCounter += 1
+                    self.__movementCounter += 1
+
+                    if self.__movementCounter > 30:
+                        self.setMotorSpeed(-1 if self.__isReverse else 2)        
+
+                else:
+                    self.__isRerotating = False
+
+                    self.robot.setState(self.robot.currentState)
+                    self.robot.updateTrajectory(self.robot.currentState)
+
+                    self.robot.calcPath()
+                
                 return
 
             cur_state = self.robot.currentState
@@ -337,6 +403,17 @@ class Simulation:
                 self.robot.calcPath()
             elif self.robot.missedCounter >= 10:
                 self.robot.missedCounter = 0
+
+                # Check if robot is stuck on its current state
+                # usually this caused by "the impossible rotation"
+                # calculated from the algorithm implementation
+                if (
+                    self.robot.isNear and self.robot.isSameSpeed
+                ) and not self.robot.isSameYaw:
+                    self.setIsRerotating(True)
+                    self.robot.predictRotation()
+                    return
+
                 self.robot.setState(self.robot.currentState)
                 self.robot.updateTrajectory(self.robot.currentState)
 
@@ -347,19 +424,6 @@ class Simulation:
         # [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
         [x, y, yaw, v, omega] = self.robot.targetState
         self.setMotorSpeed(v / self.robot.config.wheel_radius)
-
-        # Calculate difference of yaw
-        d_yaw = yaw - self.robot.currentState[2]
-
-        # Calculate wheel rotation based on the d_yaw
-        # to make the rotation degree grow exponentially
-        # yeah i know its stupid
-        EXP = 10
-        rotation_deg = d_yaw * EXP
-
-        # Make sure rotation is between 0 and -20
-        rotation_deg = max(min(rotation_deg, 0), 20)
-
-        self.rotateServo(rotation_deg, rotation=("RIGHT" if d_yaw < 0 else "LEFT"))
+        self.rotateRobot(yaw)
 
         self.robot.plotAllStuff()

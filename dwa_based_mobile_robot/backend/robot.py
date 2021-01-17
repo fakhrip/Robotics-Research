@@ -128,8 +128,7 @@ class Robot:
 
         if cur_state == None:
             self.__targetState = new_state
-
-        self.setPredictedTrajectory(predicted_trajectory)
+            self.setPredictedTrajectory(predicted_trajectory)
         
         return new_state
 
@@ -165,6 +164,23 @@ class Robot:
         else:
             self.missedCounter += 1
             return [False, False]
+
+    def predictRotation(self) -> None:
+        oldState = self.currentState
+
+        print(f"current rotation = {math.degrees(oldState[2])}")
+
+        # Keep calculating until the robot starts
+        # to move from its current location
+        state = oldState
+        while self.isCoordNear(oldState[:2], state[:2], 0.05):
+            state = self.calcPath(state).tolist()
+
+            if abs(math.degrees(oldState[2]) - math.degrees(state[2])) >= 20:
+                break
+
+        self.pred_yaw = state[2]
+        print(f"NEW rotation = {math.degrees(self.pred_yaw)}")
 
     def plotAllStuff(self) -> None:
         plt.cla()
